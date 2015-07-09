@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">HttpPost</string>
+    <string name="hello_world">Please click on the SAVE button to save the parameters.\n\nThe URL of the server is : \n"http://agiotesting.appspot.com/save"</string>
+    <string name="save">Save</string>
+    <string name="wait">Please wait...</string>
+    <string name="success">Save Successful</string>
+    <string name="fail">Save Failed</string>
+    <string name="no_network">No network connection</string>
+    <string name="pop_up_title">Saving...</string>
+    <string name="pop_up_message">Please wait, data is being saved on the server</string>
+
+</resources>
