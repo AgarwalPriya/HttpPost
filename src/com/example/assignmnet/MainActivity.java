@@ -29,7 +29,6 @@ import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
-import android.widget.ProgressBar;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
@@ -39,25 +38,20 @@ public class MainActivity extends Activity {
 	HttpResponse httpResponse = null;
 	Context mContext = null;
 	Resources res = null;
-	private ProgressBar pb;
 	Activity mActivity = null;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		mContext = this.getApplicationContext();
 		mActivity = this.getParent();
-				
 		res = mContext.getResources();
 		setContentView(R.layout.activity_main);
 		save_btn = (Button) findViewById(R.id.save);
-		pb = (ProgressBar) findViewById(R.id.progressBar1);
-		pb.setVisibility(View.GONE);
 		save_btn.setOnClickListener(new OnClickListener() {
-
+			
 			@Override
 			public void onClick(View v) {
-				if(isConnectedToInternet()) {
-					//Toast.makeText(mContext, res.getString(R.string.wait), Toast.LENGTH_SHORT).show();
+				if(isConnectedToNetwork()) {
 					new SaveParametersTask().execute("http://agiotesting.appspot.com/save");
 				} else {
 					Toast.makeText(mContext, res.getString(R.string.no_network), Toast.LENGTH_SHORT).show();
@@ -71,32 +65,26 @@ public class MainActivity extends Activity {
 	private class SaveParametersTask extends AsyncTask<String, Void, String> {
 		private volatile boolean running = true;
 		ProgressDialog progressDialog = null;
-		
+
 		@Override
-	    protected void onPreExecute() {
-		
-			runOnUiThread(new Runnable() {
-				@Override
-				public void run() {
-					if(!(MainActivity.this.isFinishing()) && res != null){
-						try{
-							progressDialog = ProgressDialog.show(MainActivity.this, res.getString(R.string.pop_up_title),
-									  res.getString(R.string.pop_up_message), true);
-						}catch (Exception e){
-							e.printStackTrace();
-						}
-					}
-					
+		protected void onPreExecute() {
+			if(!(MainActivity.this.isFinishing()) && res != null){
+				try{
+					progressDialog = ProgressDialog.show(MainActivity.this, res.getString(R.string.pop_up_title),
+							res.getString(R.string.pop_up_message), true);
+				}catch (Exception e){
+					e.printStackTrace();
 				}
-			});
-	    }
+			}
+
+		}
 		@Override
 		protected String doInBackground(String... urls) {
 			int count = urls.length;
 			String result = null;
 			for (int i = 0; i < count; i++) {
-					if(running == true)
-						result = saveParameters(urls[i]);
+				if(running == true)
+					result = saveParameters(urls[i]);
 			}
 			return result;
 		}
@@ -105,35 +93,36 @@ public class MainActivity extends Activity {
 		public void onCancelled() {
 			super.onCancelled();
 			running = false;
-			progressDialog.dismiss();
+			if (progressDialog !=null)
+				progressDialog.dismiss();
 		}
 
 		// onPostExecute displays the results of the AsyncTask.
 		@Override
 		protected void onPostExecute(String result) {
-			//progressDialog.cancel();
 			final String post_Result = result;
-			if(mContext != null && res != null){
-				runOnUiThread(new Runnable() {
-					@Override
-					public void run() {
-						if(progressDialog != null){
-							progressDialog.dismiss();
-						}
-						if(post_Result.equals("200"))
-							Toast.makeText(mContext, res.getString(R.string.success), Toast.LENGTH_LONG).show();
-						else if(post_Result.equals(res.getString(R.string.no_network)))
-							Toast.makeText(mContext, res.getString(R.string.no_network), Toast.LENGTH_LONG).show();
-						else
-							Toast.makeText(mContext, res.getString(R.string.fail), Toast.LENGTH_LONG).show();
+			runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					if(progressDialog != null){
+						progressDialog.dismiss();
 					}
-				});
-			}
+					if(mContext != null && res != null ){
+						if (post_Result != null){
+							if(post_Result.equals("200"))
+								Toast.makeText(mContext, res.getString(R.string.success), Toast.LENGTH_LONG).show();
+							else if(post_Result.equals(res.getString(R.string.no_network)))
+								Toast.makeText(mContext, res.getString(R.string.no_network), Toast.LENGTH_LONG).show();
+							else
+								Toast.makeText(mContext, res.getString(R.string.fail), Toast.LENGTH_LONG).show();
+						}
+					}
+				}
+			});
 		}
 	}
-
 	private String saveParameters(String url){
-		String result = null;
+		String result = "";
 		String str;
 		ArrayList<String> parsed_data = new ArrayList<String>();
 
@@ -168,8 +157,7 @@ public class MainActivity extends Activity {
 				postParameters.add(new BasicNameValuePair("name", name));
 				postParameters.add(new BasicNameValuePair("latitude", latitude));
 				postParameters.add(new BasicNameValuePair("longitude", longitude));
-
-				if(isConnectedToInternet()){
+				if(isConnectedToNetwork()){
 					httpPost.setEntity(new UrlEncodedFormEntity(postParameters));
 					httpResponse = httpClient.execute(httpPost);
 					result = Integer.toString(httpResponse.getStatusLine().getStatusCode());
@@ -177,10 +165,9 @@ public class MainActivity extends Activity {
 				}else{
 					result = res.getString(R.string.no_network);
 				}
-				
+
 			}
 			in.close();
-			Log.e("HTTPPOST-after post","post finish");
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
 		} catch (ClientProtocolException e) {
@@ -195,26 +182,33 @@ public class MainActivity extends Activity {
 
 	}
 
-	public boolean isConnectedToInternet(){
-		ConnectivityManager connectivity = (ConnectivityManager)getApplicationContext().
-				getSystemService(Context.CONNECTIVITY_SERVICE);
-		if (connectivity != null) 
-		{
-			NetworkInfo[] info = connectivity.getAllNetworkInfo();
-			if (info != null) 
-				for (int i = 0; i < info.length; i++) 
-					if (info[i].getState() == NetworkInfo.State.CONNECTED)
-					{
-						return true;
-					}
+	public boolean isConnectedToNetwork(){
+		
+		ConnectivityManager cm = (ConnectivityManager) mContext.getSystemService(
+				Context.CONNECTIVITY_SERVICE);
 
+		NetworkInfo wifiNetwork = cm.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+		if (wifiNetwork != null && wifiNetwork.isConnected()) {
+			return true;
 		}
+
+		NetworkInfo mobileNetwork = cm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE);
+		if (mobileNetwork != null && mobileNetwork.isConnected()) {
+			return true;
+		}
+
+		NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+		if (activeNetwork != null && activeNetwork.isConnected()) {
+			return true;
+		}
+
 		return false;
 	}
 
 	@Override
 	protected void onResume() {
 		super.onResume();
+		isConnectedToNetwork();
 	}
 	@Override
 	protected void onPause() {
