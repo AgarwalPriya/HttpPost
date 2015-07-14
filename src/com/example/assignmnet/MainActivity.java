@@ -15,6 +15,9 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HTTP;
 
 import android.app.Activity;
@@ -39,6 +42,7 @@ public class MainActivity extends Activity {
 	Context mContext = null;
 	Resources res = null;
 	Activity mActivity = null;
+	private SaveParametersTask saveTask;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -48,10 +52,11 @@ public class MainActivity extends Activity {
 		setContentView(R.layout.activity_main);
 		save_btn = (Button) findViewById(R.id.save);
 		save_btn.setOnClickListener(new OnClickListener() {
-			
 			@Override
 			public void onClick(View v) {
 				if(isConnectedToNetwork()) {
+					if (saveTask != null && saveTask.getStatus() != AsyncTask.Status.FINISHED)
+						saveTask.cancel(true);
 					new SaveParametersTask().execute("http://agiotesting.appspot.com/save");
 				} else {
 					Toast.makeText(mContext, res.getString(R.string.no_network), Toast.LENGTH_SHORT).show();
@@ -127,10 +132,7 @@ public class MainActivity extends Activity {
 		ArrayList<String> parsed_data = new ArrayList<String>();
 
 		// Create a new HttpClient and Post Header
-		httpClient = new DefaultHttpClient();
-		httpPost = new HttpPost(url);
-		httpPost.setHeader(HTTP.CONTENT_TYPE,
-				"application/x-www-form-urlencoded;charset=UTF-8");
+
 		try {		
 			InputStream ins = this.getResources().openRawResource(
 					getResources().getIdentifier("input_lat_long",
@@ -158,9 +160,22 @@ public class MainActivity extends Activity {
 				postParameters.add(new BasicNameValuePair("latitude", latitude));
 				postParameters.add(new BasicNameValuePair("longitude", longitude));
 				if(isConnectedToNetwork()){
+					result = "";
+					HttpParams httpParameters = new BasicHttpParams();
+					HttpConnectionParams.setSoTimeout(httpParameters, 3000);
+					httpClient = new DefaultHttpClient(httpParameters);
+					
+					httpPost = new HttpPost(url);
+					httpPost.setHeader(HTTP.CONTENT_TYPE,
+							"application/x-www-form-urlencoded;charset=UTF-8");
 					httpPost.setEntity(new UrlEncodedFormEntity(postParameters));
-					httpResponse = httpClient.execute(httpPost);
-					result = Integer.toString(httpResponse.getStatusLine().getStatusCode());
+					
+					if (httpClient != null && httpPost != null){
+						httpResponse = httpClient.execute(httpPost);					
+						result = Integer.toString(httpResponse.getStatusLine().getStatusCode());
+					}else{
+						result = "";
+					}
 					Log.e("HTTPPOST-response","response="+httpResponse.getStatusLine().getStatusCode());
 				}else{
 					result = res.getString(R.string.no_network);
@@ -183,7 +198,7 @@ public class MainActivity extends Activity {
 	}
 
 	public boolean isConnectedToNetwork(){
-		
+
 		ConnectivityManager cm = (ConnectivityManager) mContext.getSystemService(
 				Context.CONNECTIVITY_SERVICE);
 
@@ -208,12 +223,13 @@ public class MainActivity extends Activity {
 	@Override
 	protected void onResume() {
 		super.onResume();
-		isConnectedToNetwork();
+
 	}
 	@Override
 	protected void onPause() {
 		super.onPause();
 	}
+
 	@Override
 	protected void onStop() {
 		super.onStop();
